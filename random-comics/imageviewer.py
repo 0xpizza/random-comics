@@ -5,11 +5,17 @@ import threading
 
 from tkinter import *
 from tkinter.ttk import *
+from tkinter.filedialog import asksaveasfilename
 
 from PIL import ImageTk
 
 from . import comics
 
+
+FILE_TYPES = [
+    ('Image Files', '*.png *.jpg'), 
+    ('All Files', '*.*'),  
+] 
 
 
 class App(Frame):
@@ -20,19 +26,29 @@ class App(Frame):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        
         self.picture_frame = Frame(self)
         self.picture_frame.pack(fill=BOTH, expand=True)
         
+        # controls at bottom
         f = Frame(self)
-        f.pack(fill=X)
-        f.grid_columnconfigure(0, weight=1)
+        f.pack(fill=X, pady=4 )
+        
+        #   button
+        f.grid_columnconfigure(1, weight=1)
         self.button = Button(f, text="Start!", command=self.get_comic)
-        self.button.grid(row=0, column=0)
-        self.url_button = Label(f, text='url')
-        self.url_button.grid(row=0, column=1, padx=5)
+        self.button.grid(row=0, column=1)
+        
+        #   url button
+        self.url_button = Label(f, text='url', style='Hyper.TLabel')
+        self.url_button.grid(row=0, column=2, padx=5)
         self.url_button.bind('<Button-1>', self.toggle_url)
         
+        #   save file dialog button
+        self.url_button = Label(f, text='Save')
+        self.url_button.grid(row=0, column=0, padx=5)
+        self.url_button.bind('<Button-1>', self.save_image)
+        
+        self._img = None
         self.picture_url = StringVar(self)
         self.url_entry = Entry(self, state='readonly', textvar=self.picture_url)        
         self._busy = threading.Lock()
@@ -77,7 +93,7 @@ class App(Frame):
     
     
     def _canvas_mode(self):
-        print('canvas mode not enabled');return
+        print(NotImplementedError('currently no canvas mode'))
         
     
     def _set_viewport(self) -> bool:
@@ -85,6 +101,8 @@ class App(Frame):
         helper function that toggles between the handy dandy
         auto-resizing tkinter smart window, and a scrollbar-
         based view for images beyond the screen's dimentions.
+        
+        TODO: Learn how canvas coordinates work with scrollbars :(
         '''
         # offset slightly to account for packed widgets and also to give window
         # some breathing room
@@ -107,6 +125,14 @@ class App(Frame):
         return activate_auto_resize
         
     def _render_comic(self):
+        '''
+        This method is in charge of drawing the comic to the GUI. If the image
+        is larger than the dimentions of the screen, it's SUPPOSED to 
+        draw the image to a canvas with scrollbars so the reader can still
+        view the image, but I don't know how to do that!!!!!! So instead it
+        just tells you to open it in an application that *does* have scrolling
+        and zooming and all the other stuff I'm too dumb to know how to make.
+        '''
         # start by clearing the widgets from the picture area.
         for w in self.picture_frame.winfo_children():
             w.pack_forget()
@@ -117,6 +143,7 @@ class App(Frame):
 
         # otherwise we need to do some annoying-ass canvas magic
         else:
+            # TODO: add magic...
             self._render_error(
                 "Sorry, the image was too big and can't fit on "
                 "the screen. Please use this button here to try to view "
@@ -133,9 +160,26 @@ class App(Frame):
     def _system_render_image(self):
         self._img.show()
     
+    
+    def save_image(self, *events):
+        if self._img is None:
+            Label(self.picture_frame, text='Nothing to save...', wraplength=200).pack()
+        else:
+            name = self._root().title()
+            name = ''.join([c for c in name if c.isalnum() or c in ' '])
+            name = name.replace('  ', ' ')
+            path = asksaveasfilename(
+                initialfile=name,
+                filetypes=FILE_TYPES,
+                defaultextension=FILE_TYPES,
+            )
+            
+            if path:
+                self._img.save(path)
+                
+    
         
     def _render_error(self, err: str):
-        # boilerplate unpacking
         for w in self.picture_frame.winfo_children():
             w.pack_forget()
         
@@ -168,6 +212,11 @@ class App(Frame):
 class Root(Tk):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.style = Style(self)
+        self.configure(bg='white')
+        self.style.configure('Hyper.TLabel',
+            foreground='blue', font='arial 10 underline'
+        )
         App(self).pack(fill=BOTH, expand=True)
 
 
